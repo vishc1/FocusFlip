@@ -19,11 +19,13 @@ JSON schema:
 }
 
 Scoring:
-0–20:  Pure distraction (TikTok, YouTube Shorts, Roblox, Netflix, Instagram Reels)
-21–40: Social / light entertainment / shopping
-41–60: Neutral (news, general YouTube, casual Wikipedia)
-61–80: Partially educational (GitHub, Stack Overflow, productivity tools)
-81–100: Clearly educational and goal-aligned
+0–20:  Pure distraction (TikTok, YouTube Shorts, Roblox, Netflix, Instagram, Reddit, GeoGuessr, online games, streaming)
+21–40: Social / light entertainment / shopping / casual browsing / geography games
+41–55: Neutral (news, general YouTube, casual Wikipedia)
+56–75: Partially educational (GitHub, Stack Overflow, productivity tools, reference docs)
+76–100: Clearly educational and directly goal-aligned (Khan Academy, textbook sites, academic papers, study tools)
+
+STRICT RULE: Any game — even if it has an educational theme (geography games, trivia, puzzle games) — must score 30 or below. Games are for entertainment, not studying. GeoGuessr = 15. Wordle = 20. Wikipedia rabbit holes = 35.
 
 IMPORTANT: If a student has declared a study goal (e.g. "AP Biology"), penalize pages that don't relate to it even if they are mildly educational. Reward pages that directly support the stated goal.
 
@@ -38,7 +40,7 @@ Smart redirect — choose the MOST contextually relevant site:
 
 // ── Settings & state ───────────────────────────────────────────
 let apiKey     = '';
-let threshold  = 50;
+let threshold  = 40;
 let cooldownMs = 45_000;
 
 let stream        = null;
@@ -48,7 +50,7 @@ let detectionLoop = null;
 
 let personPresent  = false;
 let presenceFrames = 0;
-const PRESENCE_CONFIRM = 2;
+const PRESENCE_CONFIRM = 3;
 
 let lastCheckAt  = 0;
 let isAnalyzing  = false;
@@ -290,14 +292,22 @@ async function initCamera() {
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
     });
     video.srcObject = stream;
-    await video.play();
-    video.addEventListener('loadedmetadata', () => {
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      cameraPlaceholder.style.opacity = '0';
-      setTimeout(() => { cameraPlaceholder.style.display = 'none'; }, 400);
-      log('Camera ready', 'good');
+
+    // Attach listener BEFORE play() so we never miss the event
+    await new Promise((resolve) => {
+      const onReady = () => {
+        canvas.width  = video.videoWidth  || 640;
+        canvas.height = video.videoHeight || 480;
+        cameraPlaceholder.style.opacity = '0';
+        setTimeout(() => { cameraPlaceholder.style.display = 'none'; }, 400);
+        log('Camera ready', 'good');
+        resolve();
+      };
+      if (video.readyState >= 1) { onReady(); }
+      else { video.addEventListener('loadedmetadata', onReady, { once: true }); }
     });
+
+    await video.play();
     return true;
   } catch (err) {
     camPlaceholderText.textContent = '📷 Camera denied — use Simulate button';
@@ -325,24 +335,42 @@ async function initFaceDetector() {
 }
 
 let prevFrame = null;
-const MOTION_THR = 12;
+const MOTION_THR = 4;          // lowered — catch subtle movement
+const VARIANCE_THR = 180;      // scene complexity when a person is present
 
 function motionDetect() {
-  if (video.readyState < 2) return false;
-  const w = Math.floor(video.videoWidth / 4);
-  const h = Math.floor(video.videoHeight / 4);
+  if (video.readyState < 2) return { motion: false, hasContent: false };
+  const w = Math.floor(video.videoWidth / 4) || 160;
+  const h = Math.floor(video.videoHeight / 4) || 120;
   const oc = new OffscreenCanvas(w, h);
   const octx = oc.getContext('2d');
   octx.drawImage(video, 0, 0, w, h);
   const cur = octx.getImageData(0, 0, w, h).data;
-  if (!prevFrame || prevFrame.length !== cur.length) { prevFrame = cur.slice(); return false; }
-  let delta = 0;
   const pixels = cur.length / 4;
+
+  // Variance: a person in frame makes the image more complex than an empty room
+  let sum = 0, sumSq = 0;
   for (let i = 0; i < cur.length; i += 4) {
-    delta += (Math.abs(cur[i] - prevFrame[i]) + Math.abs(cur[i+1] - prevFrame[i+1]) + Math.abs(cur[i+2] - prevFrame[i+2])) / 3;
+    const lum = cur[i] * 0.299 + cur[i + 1] * 0.587 + cur[i + 2] * 0.114;
+    sum += lum; sumSq += lum * lum;
+  }
+  const mean = sum / pixels;
+  const variance = sumSq / pixels - mean * mean;
+  const hasContent = variance > VARIANCE_THR;
+
+  if (!prevFrame || prevFrame.length !== cur.length) {
+    prevFrame = cur.slice();
+    return { motion: false, hasContent };
+  }
+
+  let delta = 0;
+  for (let i = 0; i < cur.length; i += 4) {
+    delta += (Math.abs(cur[i] - prevFrame[i]) +
+              Math.abs(cur[i + 1] - prevFrame[i + 1]) +
+              Math.abs(cur[i + 2] - prevFrame[i + 2])) / 3;
   }
   prevFrame = cur.slice();
-  return (delta / pixels) > MOTION_THR;
+  return { motion: (delta / pixels) > MOTION_THR, hasContent };
 }
 
 async function faceDetect() {
@@ -387,22 +415,36 @@ async function tick() {
   if (useFaceAPI) {
     const r = await faceDetect(); detected = r.detected; confidence = r.confidence;
   } else {
-    detected = motionDetect(); confidence = detected ? 0.7 + Math.random() * 0.2 : 0;
+    const { motion, hasContent } = motionDetect();
+    // Presence = motion detected, OR already present and scene still has a person-like blob
+    detected = motion || (presenceFrames > 0 && hasContent);
+    confidence = detected ? (motion ? 0.80 : 0.60) + Math.random() * 0.15 : 0;
   }
 
-  if (detected) presenceFrames = Math.min(presenceFrames + 1, 10);
+  // Fast rise (×3), slow fall (×1) — sitting still doesn't kill detection
+  if (detected) presenceFrames = Math.min(presenceFrames + 3, 12);
   else          presenceFrames = Math.max(presenceFrames - 1, 0);
 
   const confirmed = presenceFrames >= PRESENCE_CONFIRM;
 
   if (confirmed && !personPresent) {
     personPresent = true;
-    switchSegment('focused');        // optimistic — will switch to 'distracted' if redirect fires
+    switchSegment('focused');        // optimistic — corrected after scoring
     onPersonArrived(confidence);
   } else if (!confirmed && personPresent) {
     personPresent = false;
     switchSegment('away');
     onPersonLeft();
+  }
+
+  // Continuously re-score while person is present — catches tab changes mid-session
+  if (confirmed && personPresent && !isAnalyzing && apiKey) {
+    const cooldownLeft = cooldownMs - (Date.now() - lastCheckAt);
+    if (cooldownLeft <= 0) {
+      chrome.storage.local.get('ff_pause_until', ({ ff_pause_until }) => {
+        if (!ff_pause_until || Date.now() >= ff_pause_until) analyzeActiveTab();
+      });
+    }
   }
 
   if (confirmed) {
@@ -418,18 +460,7 @@ async function onPersonArrived(confidence) {
   detectionDot.className     = 'pill-dot alert';
   detectionLabel.textContent = 'Person detected!';
   log(`👤 Person detected (${Math.round(confidence * 100)}% conf)`, 'warn');
-
-  const cooldownLeft = cooldownMs - (Date.now() - lastCheckAt);
-  if (cooldownLeft > 0) { log(`Cooldown — ${Math.ceil(cooldownLeft/1000)}s left`, ''); return; }
-
-  const { ff_pause_until } = await chrome.storage.local.get('ff_pause_until');
-  if (ff_pause_until && Date.now() < ff_pause_until) {
-    log(`Paused by user — ${Math.ceil((ff_pause_until - Date.now())/1000)}s left`, '');
-    return;
-  }
-
-  if (!apiKey) { log('⚠ No API key — open Settings', 'warn'); return; }
-  if (!isAnalyzing) analyzeActiveTab();
+  if (!apiKey) { log('⚠ No API key — open Settings', 'warn'); }
 }
 
 function onPersonLeft() {
@@ -612,6 +643,15 @@ simBtn.addEventListener('click', () => {
   presenceFrames = PRESENCE_CONFIRM + 1;
   if (!personPresent) { personPresent = true; switchSegment('focused'); onPersonArrived(0.91); }
   setTimeout(() => { if (personPresent) { presenceFrames = 0; personPresent = false; switchSegment('away'); onPersonLeft(); } }, 15_000);
+});
+
+// ── Tab-change resets ───────────────────────────────────────────
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.action === 'tabUrlChanged') {
+    lastCheckAt      = 0;       // reset cooldown → re-analyze on next tick
+    currentPageScore = null;
+    setScoreState('idle');
+  }
 });
 
 // ── Boot ────────────────────────────────────────────────────────
