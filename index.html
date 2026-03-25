@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusFlip — AI Focus Guardian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-name">FocusFlip</span>
+      <span class="nav-tagline">AI Focus Guardian</span>
+    </div>
+    <div class="nav-center">
+      <span class="badge badge-ai">AI-Powered</span>
+      <span class="badge badge-edu">EdTech</span>
+    </div>
+    <div class="nav-status">
+      <div class="status-dot" id="navDot"></div>
+      <span id="navStatusText">Initializing...</span>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- LEFT: Camera Panel -->
+    <section class="panel camera-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Presence Detection</h2>
+          <p class="panel-sub">COCO-SSD Neural Network · Real-time</p>
+        </div>
+        <div class="detection-counter" id="detectionCounter">0 detections</div>
+      </div>
+
+      <div class="camera-container">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+
+        <div class="camera-init" id="cameraInit">
+          <div class="camera-init-inner">
+            <div class="camera-spinner"></div>
+            <div id="cameraInitText">Requesting camera...</div>
+          </div>
+        </div>
+
+        <div class="person-badge" id="personBadge">
+          <span class="person-badge-dot"></span>
+          PERSON DETECTED
+        </div>
+
+        <div class="scan-line" id="scanLine"></div>
+      </div>
+
+      <div class="confidence-row" id="confidenceRow" style="display:none">
+        <span class="confidence-label">Confidence</span>
+        <div class="confidence-track">
+          <div class="confidence-fill" id="confidenceFill"></div>
+        </div>
+        <span class="confidence-pct" id="confidencePct">0%</span>
+      </div>
+
+      <button class="btn-sim" id="simBtn">
+        <span>👤</span> Simulate Person Detected
+      </button>
+
+      <div class="log-box">
+        <div class="log-title">Activity Log</div>
+        <div class="log-entries" id="logEntries"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Scoring Panel -->
+    <section class="panel score-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Page Intelligence</h2>
+          <p class="panel-sub">Educational productivity classifier</p>
+        </div>
+        <button class="btn-analyze" id="analyzeBtn">Analyze</button>
+      </div>
+
+      <div class="url-card">
+        <label class="url-label">Current Page URL</label>
+        <input type="text" id="urlInput" class="url-input"
+          placeholder="https://youtube.com/shorts/..."
+          value="https://www.youtube.com/shorts/abc123">
+        <div class="url-page-title" id="urlPageTitle">YouTube Shorts</div>
+      </div>
+
+      <div class="quick-picks">
+        <div class="quick-picks-label">Quick examples:</div>
+        <div class="quick-picks-grid">
+          <button class="qp qp-bad"  data-url="https://youtube.com/shorts/abc"     data-title="YouTube Shorts">📱 YT Shorts</button>
+          <button class="qp qp-bad"  data-url="https://tiktok.com/@user/video"     data-title="TikTok">🎵 TikTok</button>
+          <button class="qp qp-bad"  data-url="https://instagram.com/reels"        data-title="Instagram Reels">📸 Instagram</button>
+          <button class="qp qp-bad"  data-url="https://roblox.com/games/123"       data-title="Roblox Game">🎮 Roblox</button>
+          <button class="qp qp-bad"  data-url="https://netflix.com/browse"         data-title="Netflix">🎬 Netflix</button>
+          <button class="qp qp-mid"  data-url="https://reddit.com/r/all"           data-title="Reddit - Front Page">💬 Reddit</button>
+          <button class="qp qp-mid"  data-url="https://discord.com/channels/@me"   data-title="Discord">🎧 Discord</button>
+          <button class="qp qp-good" data-url="https://khanacademy.org/math"       data-title="Khan Academy · Math">📚 Khan Academy</button>
+          <button class="qp qp-good" data-url="https://quizlet.com/study-guides"   data-title="Quizlet · Flashcards">📝 Quizlet</button>
+          <button class="qp qp-good" data-url="https://docs.google.com/document"   data-title="Google Docs · Homework">📄 Google Docs</button>
+          <button class="qp qp-good" data-url="https://wikipedia.org/wiki/Physics" data-title="Wikipedia · Physics">🌐 Wikipedia</button>
+          <button class="qp qp-good" data-url="https://classroom.google.com"       data-title="Google Classroom">🏫 Classroom</button>
+        </div>
+      </div>
+
+      <div class="score-card" id="scoreCard">
+        <div class="score-top-row">
+          <div>
+            <div class="score-card-label">Educational Score</div>
+            <div class="score-category" id="scoreCategory">Awaiting analysis...</div>
+          </div>
+          <div class="score-type-pill" id="scoreTypePill">—</div>
+        </div>
+
+        <div class="score-number-row">
+          <span class="score-number" id="scoreNumber">—</span>
+          <span class="score-denom">/100</span>
+        </div>
+
+        <div class="score-bar-track">
+          <div class="score-bar-fill" id="scoreBarFill"></div>
+          <div class="score-bar-zones">
+            <div class="zone zone-bad"></div>
+            <div class="zone zone-mid"></div>
+            <div class="zone zone-good"></div>
+          </div>
+        </div>
+        <div class="score-bar-labels">
+          <span>Distracting</span>
+          <span>Neutral</span>
+          <span>Educational</span>
+        </div>
+
+        <div class="score-verdict" id="scoreVerdict">
+          Select a URL and click Analyze
+        </div>
+      </div>
+
+      <div class="redirect-card" id="redirectCard" style="display:none">
+        <div class="redirect-left">
+          <div class="redirect-icon" id="redirectIcon">🔄</div>
+          <div>
+            <div class="redirect-reason" id="redirectReason">Low productivity detected</div>
+            <div class="redirect-dest" id="redirectDest">→ Khan Academy</div>
+          </div>
+        </div>
+        <button class="btn-trigger" id="triggerBtn">Trigger Flip ⚡</button>
+      </div>
+
+      <div class="auto-flip-row">
+        <label class="toggle-label">
+          <input type="checkbox" id="autoFlipToggle" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          Auto-flip on person detected
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <!-- OVERLAY -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-card">
+      <div class="overlay-header">
+        <div class="overlay-brand">⚡ FocusFlip</div>
+        <div class="overlay-badge-pill">AI Focus Monitor</div>
+      </div>
+
+      <div class="overlay-detect-row">
+        <div class="overlay-eye">👁️</div>
+        <div class="overlay-detect-info">
+          <div class="overlay-detect-title">Person Detected</div>
+          <div class="overlay-detect-sub">Analyzing current page...</div>
+        </div>
+        <div class="overlay-detect-check">✓</div>
+      </div>
+
+      <div class="overlay-score-section">
+        <div class="overlay-score-label">Educational Score</div>
+        <div class="overlay-score-value" id="overlayScore">0</div>
+        <div class="overlay-score-bar-bg">
+          <div class="overlay-score-bar-fill" id="overlayScoreBar"></div>
+        </div>
+        <div class="overlay-score-category" id="overlayCategory">Classifying...</div>
+      </div>
+
+      <div class="overlay-action">
+        <div class="overlay-action-label">Switching to a more productive page</div>
+        <div class="overlay-action-dest">
+          <span id="overlayActionIcon">📚</span>
+          <span id="overlayActionName">Khan Academy</span>
+        </div>
+        <div class="overlay-countdown">
+          Redirecting in <span class="countdown-num" id="countdownNum">5</span>s
+        </div>
+      </div>
+
+      <div class="overlay-btns">
+        <button class="btn-cancel" id="cancelBtn">Stay on This Page</button>
+        <button class="btn-go-now" id="goNowBtn">Go Now →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast">
+    <span id="toastIcon">✓</span>
+    <span id="toastMsg">Done</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

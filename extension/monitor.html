@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusFlip Monitor</title>
+  <link rel="stylesheet" href="monitor.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ───────────────────────────────────── -->
+  <header class="header">
+    <div class="header-brand">
+      <span class="hb-icon">⚡</span>
+      <span class="hb-name">FocusFlip</span>
+      <span class="hb-sub">Presence-Aware Learning Assistant</span>
+    </div>
+    <div class="header-center">
+      <div class="pill" id="detectionPill">
+        <span class="pill-dot" id="detectionDot"></span>
+        <span id="detectionLabel">Scanning...</span>
+      </div>
+      <div class="focus-weather" id="focusWeather" title="Session focus quality">☀️ Clear</div>
+    </div>
+    <div class="header-right">
+      <div class="api-indicator" id="apiIndicator">
+        <span class="api-dot" id="apiDot"></span>
+        <span id="apiLabel">No API key</span>
+      </div>
+      <button class="settings-toggle" id="settingsToggle" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- ── Settings drawer ──────────────────────────── -->
+  <div class="settings-drawer" id="settingsDrawer">
+    <div class="settings-inner">
+      <label class="s-label">OpenAI API Key</label>
+      <div class="s-row">
+        <input type="password" id="apiKeyInput" placeholder="sk-..." autocomplete="off">
+        <button id="saveKeyBtn">Save</button>
+      </div>
+      <div class="s-hint" id="keyHint">Enter your OpenAI key to enable AI scoring</div>
+      <div class="s-two-col">
+        <div>
+          <label class="s-label" style="margin-top:12px">Score threshold</label>
+          <div class="s-row">
+            <input type="range" id="thresholdSlider" min="20" max="70" value="50" style="flex:1">
+            <span class="s-threshold" id="thresholdVal">50</span>
+          </div>
+        </div>
+        <div>
+          <label class="s-label" style="margin-top:12px">Re-check cooldown</label>
+          <select id="cooldownSelect">
+            <option value="20000">20 seconds</option>
+            <option value="45000" selected>45 seconds</option>
+            <option value="120000">2 minutes</option>
+            <option value="300000">5 minutes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Session intent banner ─────────────────────── -->
+  <div class="intent-banner" id="intentBanner">
+    <div class="intent-icon">🎯</div>
+    <div class="intent-body" id="intentUnset">
+      <span class="intent-prompt">What are you studying right now?</span>
+      <div class="intent-input-row">
+        <input type="text" id="intentInput"
+          placeholder="e.g. AP Biology — Cell Respiration, Chapter 5"
+          maxlength="80">
+        <button id="setIntentBtn">Set Goal</button>
+      </div>
+    </div>
+    <div class="intent-body intent-set-body" id="intentSet" style="display:none">
+      <span class="intent-set-label">Studying:</span>
+      <span class="intent-set-text" id="intentText">—</span>
+      <button class="intent-clear-btn" id="clearIntentBtn">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- ── Main grid ─────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Left: Camera -->
+    <section class="camera-col">
+
+      <div class="camera-wrap">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+
+        <div class="camera-placeholder" id="cameraPlaceholder">
+          <div class="cam-spinner"></div>
+          <div id="camPlaceholderText">Requesting camera...</div>
+        </div>
+
+        <div class="person-chip" id="personChip">
+          <span class="person-chip-dot"></span>
+          PERSON DETECTED
+        </div>
+
+        <div class="scan-bar" id="scanBar"></div>
+      </div>
+
+      <div class="confidence-strip" id="confidenceStrip" style="opacity:0">
+        <span class="cs-label">Face confidence</span>
+        <div class="cs-track">
+          <div class="cs-fill" id="csFill"></div>
+        </div>
+        <span class="cs-pct" id="csPct">0%</span>
+      </div>
+
+      <!-- Focus Timeline -->
+      <div class="timeline-card">
+        <div class="timeline-header">
+          <span class="timeline-title">Session Timeline</span>
+          <span class="timeline-duration" id="timelineDuration">0:00</span>
+        </div>
+        <div class="timeline-track" id="timelineTrack">
+          <div class="timeline-empty">Session not started yet</div>
+        </div>
+        <div class="timeline-legend">
+          <span class="tl-dot tl-focused"></span><span>Focused</span>
+          <span class="tl-dot tl-distracted"></span><span>Distracted</span>
+          <span class="tl-dot tl-away"></span><span>Away</span>
+        </div>
+      </div>
+
+      <button class="sim-btn" id="simBtn">👤 Simulate Person Detected</button>
+
+    </section>
+
+    <!-- Right: Analysis -->
+    <section class="analysis-col">
+
+      <!-- Honest Minutes hero stat -->
+      <div class="hero-stats">
+        <div class="hero-stat primary">
+          <div class="hero-num" id="honestMinutes">0</div>
+          <div class="hero-lbl">Honest Focus Minutes</div>
+          <div class="hero-sub">present + on productive page</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-num" id="focusScore">—</div>
+          <div class="hero-lbl">Focus Score</div>
+          <div class="hero-sub">% of time productive</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-num" id="bestStreak">0m</div>
+          <div class="hero-lbl">Best Streak</div>
+          <div class="hero-sub">longest focus run</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-num" id="statRedirects">0</div>
+          <div class="hero-lbl">Nudges Sent</div>
+          <div class="hero-sub">redirects triggered</div>
+        </div>
+      </div>
+
+      <!-- Current tab card -->
+      <div class="card tab-card">
+        <div class="card-label">Monitored Tab</div>
+        <div class="tab-url" id="tabUrl">Waiting for detection...</div>
+        <div class="tab-title" id="tabTitle"></div>
+      </div>
+
+      <!-- AI Score card -->
+      <div class="card score-card">
+        <div class="score-header">
+          <div class="card-label">OpenAI Educational Score</div>
+          <div class="score-model-badge">gpt-4o-mini</div>
+        </div>
+
+        <div class="score-idle" id="scoreIdle">Waiting for person detection...</div>
+
+        <div class="score-loading" id="scoreLoading" style="display:none">
+          <div class="loading-spinner"></div>
+          <span id="loadingLabel">Calling OpenAI API...</span>
+        </div>
+
+        <div class="score-result" id="scoreResult" style="display:none">
+          <div class="sr-number-row">
+            <span class="sr-number" id="srNumber">—</span>
+            <span class="sr-denom">/100</span>
+            <div class="sr-category-pill" id="srCategoryPill">—</div>
+          </div>
+          <div class="sr-bar-track">
+            <div class="sr-bar-fill" id="srBarFill"></div>
+          </div>
+          <div class="sr-reason" id="srReason">—</div>
+        </div>
+
+        <div class="score-error" id="scoreError" style="display:none">
+          <span>⚠</span> <span id="scoreErrorMsg">API error</span>
+        </div>
+      </div>
+
+      <!-- Action card -->
+      <div class="card action-card" id="actionCard" style="display:none">
+        <div class="card-label">Adaptive nudge sent</div>
+        <div class="action-row">
+          <div class="action-icon" id="actionIcon">📚</div>
+          <div>
+            <div class="action-dest" id="actionDest">—</div>
+            <div class="action-url"  id="actionUrl">—</div>
+          </div>
+          <div class="action-check">✓</div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ── Activity log ──────────────────────────────── -->
+  <div class="log-panel">
+    <div class="log-panel-title">Activity Log</div>
+    <div class="log-entries" id="logEntries"></div>
+  </div>
+
+</div>
+<script src="monitor.js"></script>
+</body>
+</html>

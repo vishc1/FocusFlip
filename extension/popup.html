@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FocusFlip</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<div class="popup">
+
+  <div class="brand">
+    <span class="brand-icon">⚡</span>
+    <span class="brand-name">FocusFlip</span>
+  </div>
+  <p class="tagline">Camera · OpenAI · Auto-redirect</p>
+
+  <div class="key-section">
+    <label class="key-label">OpenAI API Key</label>
+    <div class="key-row">
+      <input type="password" id="apiKeyInput" placeholder="sk-..." autocomplete="off">
+      <button id="saveBtn">Save</button>
+    </div>
+    <div class="key-status" id="keyStatus">No key saved</div>
+  </div>
+
+  <button class="launch-btn" id="launchBtn">
+    ⚡ Launch FocusFlip Monitor
+  </button>
+
+  <div class="how">
+    <div class="how-step"><span>1</span> Camera detects you sitting down</div>
+    <div class="how-step"><span>2</span> OpenAI scores the current tab</div>
+    <div class="how-step"><span>3</span> Low score → auto redirect</div>
+  </div>
+
+</div>
+<script src="popup.js"></script>
+</body>
+</html>
