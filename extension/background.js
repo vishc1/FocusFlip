@@ -33,7 +33,10 @@ function setActiveTab(url) {
 
 // Track the last tab the user actually visited
 chrome.tabs.onActivated.addListener(({ tabId }) => {
-  if (tabId === monitorTabId) return;
+  if (tabId === monitorTabId) {
+    setActiveTab(null);   // flush previous tab's time, pause tracking while on monitor
+    return;
+  }
   chrome.tabs.get(tabId, tab => {
     if (chrome.runtime.lastError) return;
     if (isSkippableUrl(tab.url)) return;

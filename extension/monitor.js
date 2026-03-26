@@ -667,9 +667,8 @@ async function updateTabTimes() {
   const total = entries.reduce((sum, [, ms]) => sum + ms, 0);
 
   tabTimesList.innerHTML = entries.slice(0, 8).map(([host, ms]) => {
-    const pct   = Math.round(ms / total * 100);
-    const score = statScores.length > 0 ? null : null;   // placeholder — could correlate later
-    const bar   = `<div class="tt-bar" style="width:${pct}%"></div>`;
+    const pct = Math.round(ms / total * 100);
+    const bar = `<div class="tt-bar" style="width:${pct}%"></div>`;
     return `<div class="tt-row">
       <span class="tt-host">${host}</span>
       <div class="tt-track">${bar}</div>
