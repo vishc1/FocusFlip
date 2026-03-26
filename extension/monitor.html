@@ -45,8 +45,8 @@
         <div>
           <label class="s-label" style="margin-top:12px">Score threshold</label>
           <div class="s-row">
-            <input type="range" id="thresholdSlider" min="20" max="70" value="50" style="flex:1">
-            <span class="s-threshold" id="thresholdVal">50</span>
+            <input type="range" id="thresholdSlider" min="20" max="70" value="40" style="flex:1">
+            <span class="s-threshold" id="thresholdVal">40</span>
           </div>
         </div>
         <div>
@@ -194,6 +194,14 @@
 
         <div class="score-error" id="scoreError" style="display:none">
           <span>⚠</span> <span id="scoreErrorMsg">API error</span>
+        </div>
+      </div>
+
+      <!-- Tab time card -->
+      <div class="card tab-times-card">
+        <div class="card-label">Time Per Tab <span class="tab-times-session">(this session)</span></div>
+        <div id="tabTimesList" class="tab-times-list">
+          <div class="tab-times-empty">No tabs tracked yet</div>
         </div>
       </div>
 

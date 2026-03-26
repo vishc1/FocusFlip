@@ -126,6 +126,7 @@ const actionCard         = document.getElementById('actionCard');
 const actionIcon         = document.getElementById('actionIcon');
 const actionDest         = document.getElementById('actionDest');
 const actionUrl          = document.getElementById('actionUrl');
+const tabTimesList       = document.getElementById('tabTimesList');
 const logEntries         = document.getElementById('logEntries');
 const honestMinutesEl    = document.getElementById('honestMinutes');
 const focusScoreEl       = document.getElementById('focusScore');
@@ -404,7 +405,7 @@ async function faceDetect() {
 function startDetectionLoop() {
   clearInterval(detectionLoop);
   detectionLoop = setInterval(tick, 900);
-  timelineInterval = setInterval(() => { renderTimeline(); tickHonestMinutes(); }, 5_000);
+  timelineInterval = setInterval(() => { renderTimeline(); tickHonestMinutes(); updateTabTimes(); }, 5_000);
   scanBar.classList.add('active');
   log('Detection loop started', 'good');
 }
@@ -645,6 +646,38 @@ simBtn.addEventListener('click', () => {
   setTimeout(() => { if (personPresent) { presenceFrames = 0; personPresent = false; switchSegment('away'); onPersonLeft(); } }, 15_000);
 });
 
+// ── Tab time display ────────────────────────────────────────────
+function fmtMs(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+async function updateTabTimes() {
+  let data;
+  try { data = await chrome.runtime.sendMessage({ action: 'getTabTimes' }); }
+  catch (_) { return; }
+
+  const times = data?.tabTimes || {};
+  const entries = Object.entries(times).filter(([, ms]) => ms > 1000);
+  if (!entries.length) return;
+
+  entries.sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, ms]) => sum + ms, 0);
+
+  tabTimesList.innerHTML = entries.slice(0, 8).map(([host, ms]) => {
+    const pct   = Math.round(ms / total * 100);
+    const score = statScores.length > 0 ? null : null;   // placeholder — could correlate later
+    const bar   = `<div class="tt-bar" style="width:${pct}%"></div>`;
+    return `<div class="tt-row">
+      <span class="tt-host">${host}</span>
+      <div class="tt-track">${bar}</div>
+      <span class="tt-time">${fmtMs(ms)}</span>
+    </div>`;
+  }).join('');
+}
+
 // ── Tab-change resets ───────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.action === 'tabUrlChanged') {
@@ -672,7 +705,7 @@ async function boot() {
     detectionDot.className     = 'pill-dot warning';
     detectionLabel.textContent = 'Camera unavailable';
     // Still start timeline + honest-minutes ticker for simulate button
-    timelineInterval = setInterval(() => { renderTimeline(); tickHonestMinutes(); }, 5_000);
+    timelineInterval = setInterval(() => { renderTimeline(); tickHonestMinutes(); updateTabTimes(); }, 5_000);
   }
 
   renderTimeline();

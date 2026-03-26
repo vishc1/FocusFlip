@@ -3,16 +3,42 @@
 let monitorTabId   = null;
 let lastUserTabId  = null;   // most recent non-monitor, non-extension tab
 
+// ── Per-tab time tracking ────────────────────────────────────────
+let tabTimes          = {};   // hostname → total ms
+let activeTabHostname = null;
+let activeTabStart    = null;
+
+function isSkippableUrl(url) {
+  return !url ||
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('about:');
+}
+
+function hostnameOf(url) {
+  try { return new URL(url).hostname.replace('www.', ''); } catch (_) { return null; }
+}
+
+function flushActiveTab() {
+  if (!activeTabHostname || !activeTabStart) return;
+  tabTimes[activeTabHostname] = (tabTimes[activeTabHostname] || 0) + (Date.now() - activeTabStart);
+  activeTabStart = Date.now();   // reset start so next flush is incremental
+}
+
+function setActiveTab(url) {
+  flushActiveTab();
+  activeTabHostname = url ? hostnameOf(url) : null;
+  activeTabStart    = activeTabHostname ? Date.now() : null;
+}
+
 // Track the last tab the user actually visited
 chrome.tabs.onActivated.addListener(({ tabId }) => {
   if (tabId === monitorTabId) return;
   chrome.tabs.get(tabId, tab => {
     if (chrome.runtime.lastError) return;
-    if (!tab.url) return;
-    if (tab.url.startsWith('chrome://') ||
-        tab.url.startsWith('chrome-extension://') ||
-        tab.url.startsWith('about:')) return;
+    if (isSkippableUrl(tab.url)) return;
     lastUserTabId = tabId;
+    setActiveTab(tab.url);
     notifyMonitorTabChanged();
   });
 });
@@ -21,12 +47,10 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (tabId === monitorTabId) return;
   if (changeInfo.status !== 'complete') return;
-  if (!tab.url ||
-      tab.url.startsWith('chrome://') ||
-      tab.url.startsWith('chrome-extension://') ||
-      tab.url.startsWith('about:')) return;
+  if (isSkippableUrl(tab.url)) return;
   if (tab.active) {
     lastUserTabId = tabId;
+    setActiveTab(tab.url);
     notifyMonitorTabChanged();
   }
 });
@@ -41,6 +65,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   // Popup asks to open the monitor tab
   if (msg.action === 'openMonitor') {
     openMonitor().then(id => reply({ tabId: id }));
+    return true;
+  }
+
+  // Monitor asks for per-tab time data
+  if (msg.action === 'getTabTimes') {
+    flushActiveTab();
+    reply({ tabTimes: { ...tabTimes } });
     return true;
   }
 
