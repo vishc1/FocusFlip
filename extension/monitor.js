@@ -25,6 +25,8 @@ Scoring:
 56–75: Partially educational (GitHub, Stack Overflow, productivity tools, reference docs)
 76–100: Clearly educational and directly goal-aligned (Khan Academy, textbook sites, academic papers, study tools)
 
+STRICT RULE: Login, sign-in, and authentication pages (e.g. accounts.google.com, any URL containing /login, /signin, /auth, /oauth) must score 70 and should_redirect must be false — the user is just signing in to access a resource.
+
 STRICT RULE: Any game — even if it has an educational theme (geography games, trivia, puzzle games) — must score 30 or below. Games are for entertainment, not studying. GeoGuessr = 15. Wordle = 20. Wikipedia rabbit holes = 35.
 
 IMPORTANT: If a student has declared a study goal (e.g. "AP Biology"), penalize pages that don't relate to it even if they are mildly educational. Reward pages that directly support the stated goal.
