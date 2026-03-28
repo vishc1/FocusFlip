@@ -501,16 +501,6 @@ async function analyzeActiveTab() {
   tabUrl.textContent   = host;
   tabTitle.textContent = tab.title || '';
 
-  // Never analyze or redirect auth/login pages — score them green client-side
-  if (isAuthPage(tab.url)) {
-    setScoreState('ok');
-    currentPageScore = 75;
-    log(`Auth/sign-in page — skipping analysis`, '');
-    isAnalyzing = false;
-    lastCheckAt = Date.now();
-    return;
-  }
-
   setScoreState('loading');
   loadingLabel.textContent = `Scoring "${host}" with OpenAI...${sessionIntent ? ' (goal-aware)' : ''}`;
   log(`Analyzing: ${host}${sessionIntent ? ` (goal: "${sessionIntent.slice(0,25)}")` : ''}`, '');
@@ -606,18 +596,6 @@ function flipTab(tabId, result, lastProductive, distractionCount, intent) {
 }
 
 // ── UI helpers ──────────────────────────────────────────────────
-const AUTH_HOSTNAMES = ['accounts.google.com', 'login.microsoftonline.com', 'login.live.com', 'appleid.apple.com', 'auth0.com'];
-const AUTH_PATH_TOKENS = ['/login', '/signin', '/sign-in', '/auth', '/oauth', '/sso', '/session/new'];
-function isAuthPage(url) {
-  try {
-    const u = new URL(url);
-    if (AUTH_HOSTNAMES.some(h => u.hostname === h || u.hostname.endsWith('.' + h))) return true;
-    const path = u.pathname.toLowerCase();
-    if (AUTH_PATH_TOKENS.some(t => path.includes(t))) return true;
-  } catch (_) {}
-  return false;
-}
-
 function setScoreState(state) {
   scoreIdle.style.display    = state === 'idle'    ? 'block' : 'none';
   scoreLoading.style.display = state === 'loading' ? 'flex'  : 'none';
