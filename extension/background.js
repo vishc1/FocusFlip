@@ -8,6 +8,38 @@ let tabTimes          = {};   // hostname → total ms
 let activeTabHostname = null;
 let activeTabStart    = null;
 
+// ── Restore persisted state on SW restart ────────────────────────
+// MV3 service workers are killed after ~30s of inactivity.
+// We persist critical IDs and time data to storage.session so they
+// survive SW restarts within the same browser session.
+(async () => {
+  try {
+    const data = await chrome.storage.session.get([
+      'ff_sw_monitorTabId', 'ff_sw_lastUserTabId', 'ff_sw_tabTimes'
+    ]);
+    if (data.ff_sw_monitorTabId != null) {
+      // Verify the tab still exists before trusting the saved ID
+      try {
+        await chrome.tabs.get(data.ff_sw_monitorTabId);
+        monitorTabId = data.ff_sw_monitorTabId;
+      } catch (_) {
+        chrome.storage.session.remove('ff_sw_monitorTabId');
+      }
+    }
+    if (data.ff_sw_lastUserTabId != null) {
+      try {
+        await chrome.tabs.get(data.ff_sw_lastUserTabId);
+        lastUserTabId = data.ff_sw_lastUserTabId;
+      } catch (_) {
+        chrome.storage.session.remove('ff_sw_lastUserTabId');
+      }
+    }
+    if (data.ff_sw_tabTimes) {
+      tabTimes = data.ff_sw_tabTimes;
+    }
+  } catch (_) {}
+})();
+
 function isSkippableUrl(url) {
   return !url ||
     url.startsWith('chrome://') ||
@@ -23,6 +55,7 @@ function flushActiveTab() {
   if (!activeTabHostname || !activeTabStart) return;
   tabTimes[activeTabHostname] = (tabTimes[activeTabHostname] || 0) + (Date.now() - activeTabStart);
   activeTabStart = Date.now();   // reset start so next flush is incremental
+  chrome.storage.session.set({ ff_sw_tabTimes: tabTimes }).catch(() => {});
 }
 
 function setActiveTab(url) {
@@ -41,6 +74,7 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
     if (chrome.runtime.lastError) return;
     if (isSkippableUrl(tab.url)) return;
     lastUserTabId = tabId;
+    chrome.storage.session.set({ ff_sw_lastUserTabId: tabId }).catch(() => {});
     setActiveTab(tab.url);
     notifyMonitorTabChanged();
   });
@@ -53,6 +87,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (isSkippableUrl(tab.url)) return;
   if (tab.active) {
     lastUserTabId = tabId;
+    chrome.storage.session.set({ ff_sw_lastUserTabId: tabId }).catch(() => {});
     setActiveTab(tab.url);
     notifyMonitorTabChanged();
   }
@@ -156,10 +191,15 @@ async function openMonitor() {
     active: true,
   });
   monitorTabId = tab.id;
+  chrome.storage.session.set({ ff_sw_monitorTabId: monitorTabId }).catch(() => {});
 
   // Clear stored ID when tab closes
   chrome.tabs.onRemoved.addListener(function onRemoved(id) {
-    if (id === monitorTabId) { monitorTabId = null; chrome.tabs.onRemoved.removeListener(onRemoved); }
+    if (id === monitorTabId) {
+      monitorTabId = null;
+      chrome.storage.session.remove('ff_sw_monitorTabId').catch(() => {});
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+    }
   });
 
   return monitorTabId;
